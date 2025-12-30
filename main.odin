@@ -58,12 +58,12 @@ traverse_identifiers :: proc(
 	}
 }
 
-join_exec_dir :: proc(path: string) -> (res: string, ok: bool) {
+join_exec_dir :: proc(path: string, allocator := context.allocator) -> (res: string, ok: bool) {
 	path := path
 	if !filepath.is_abs(path) {
 		dir, err := os2.get_executable_directory(context.temp_allocator)
 		if err != nil do return "", false
-		path = filepath.join({dir, path})
+		path = filepath.join({dir, path}, allocator)
 	}
 	return path, true
 }

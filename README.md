@@ -78,12 +78,18 @@ This was largely LLM-generated because I don't know Elisp and neither want to.
 }
 ```
 
-The JSON file is mostly self-explanatory, so I'll spare you the descriptions for now.
+- `grammar_dll`: The path to the parser compiled as a dynamic library. Can be
+  relative or absolute.
+- `grammar_init`: The function symbol that gets called to initialize the parser.
+- `filters`: List of strings where each is the node type of the immediate parent
+  of an identifier. This list will be used to filter for useful identifiers.
 
 > [!IMPORTANT]
-> The current working directory is _not_ used. This may be implemented as an optional flag in the future.
+> The current working directory is _not_ used. This may be implemented as an
+> optional flag in the future.
 
-By default it looks for the configuration file `config.json` at the directory where the `tscout` executable resides. Use `-c` flag to override it.
+By default it looks for the configuration file `config.json` at the directory
+where the `tscout` executable resides. Use `-c` flag to override it.
 
 Relative paths are joined with the directory where the `tscout` executable
 resides. Use absolute paths to avoid that if necessary.
@@ -92,7 +98,10 @@ resides. Use absolute paths to avoid that if necessary.
 Tscout has officially only been tested on a Linux AMD64 system.
 
 ### Prebuilt Binaries
-You can download prebuilt binaries from [Github Releases](https://github.com/eeriemyxi/tscout/releases/latest). Platforms included:
+You can download prebuilt binaries from [Github
+Releases](https://github.com/eeriemyxi/tscout/releases/latest). Platforms
+included:
+
 - Linux AMD64
 
 ### Compile from Source

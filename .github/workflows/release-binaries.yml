@@ -27,7 +27,6 @@ jobs:
 
       - name: Build Binaries
         run: |
-          odin run odin-tree-sitter/build -- install
           make OPTIMIZATION=aggressive TARGET=bin/tscout-linux-amd64.bin PLATFORM=linux_amd64
           sha256sum bin/tscout-linux-amd64.bin > bin/tscout-linux-amd64.sha256
 

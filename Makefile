@@ -21,9 +21,13 @@ all: $(TARGET)
 $(BIN):
 	mkdir -p $(BIN)
 
-$(TARGET): *.odin | $(BIN)
+$(TARGET): *.odin odin-tree-sitter/tree-sitter/libtree-sitter.a | $(BIN)
 	odin build . -out:$(TARGET) -o:$(OPTIMIZATION) -target:$(PLATFORM) $(DEFINES) $(EXTRA_FLAGS)
+
+odin-tree-sitter/tree-sitter/libtree-sitter.a:
+	odin run odin-tree-sitter/build -- install
 
 clean:
 	rm -f $(TARGET)
 	rmdir $(BIN) 2>/dev/null || true
+	rm -rf odin-tree-sitter/tree-sitter

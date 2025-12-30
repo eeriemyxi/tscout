@@ -115,7 +115,7 @@ load_config :: proc(
 				for fil in c["filters"].(json.Array) do append(&entry.filters, fil.(json.String))
 			case:
 				return false, fmt.tprintf(
-					"Invalid configuration for extension '.%v' for configuration file '%v'",
+					"invalid configuration for extension '.%v' for configuration file '%v'",
 					key,
 					config_path,
 				)

@@ -119,7 +119,7 @@ load_config :: proc(
 				}
 			case:
 				return false, fmt.tprintf(
-					"invalid configuration for extension '.%v' for configuration file '%v'",
+					"invalid configuration for extension '%v' for configuration file '%v'",
 					key,
 					config_path,
 				)

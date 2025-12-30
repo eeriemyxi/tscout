@@ -12,7 +12,7 @@ EXTRA_FLAGS = #-strict-style -vet-tabs -warnings-as-errors
 ifeq ($(DEBUG),1)
 	EXTRA_FLAGS += -debug
 endif
-DEFINES = -define:VERSION=$(VERSION) -define:GIT_HASH=x$(GIT_HASH) -define:COMP_DATE=$(COMP_DATE)
+DEFINES = -define:VERSION=$(VERSION) -define:GIT_HASH=x$(GIT_HASH) -define:COMP_DATE=$(COMP_DATE) -define:PROGRAM_NAME=$(PROGRAM_NAME)
 
 .PHONY: all clean
 

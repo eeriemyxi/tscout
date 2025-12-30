@@ -223,7 +223,8 @@ get_parser :: proc(
 
 display_version :: proc() {
 	fmt.printfln(
-		"tscout version %v (%v %v)",
+		"%v version %v (%v %v)",
+		#config(PROGRAM_NAME, "<unknown>"),
 		#config(VERSION, "none"),
 		#config(GIT_HASH, "none")[1:], // Sometimes, it gets interpreted as integer otherwise
 		#config(COMP_DATE, "none"),

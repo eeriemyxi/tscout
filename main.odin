@@ -196,12 +196,12 @@ display_version :: proc() {
 	)
 }
 
-// TODO: flag to specify config file
 Options :: struct {
 	i: string `args:"pos=0" usage:"Input file or directory"`,
 	v: bool `usage:"Show version info"`,
 	d: int `usage:"Directory traversal depth. 1 by default. -1 for infinite"`,
 	f: bool `usage:"Include full text for each match"`,
+	c: string `usage:"Override config path"`,
 	l: log.Level `usage:"Set log level. Info by default. Options: Debug, Info, Warning, Error, Fatal"`,
 }
 
@@ -211,6 +211,7 @@ main :: proc() {
 	opt.l = .Info
 	opt.d = 1
 	opt.f = false
+	opt.c = "config.json"
 
 	style: flags.Parsing_Style = .Odin
 	flags.parse_or_exit(&opt, os.args, style)
@@ -230,7 +231,7 @@ main :: proc() {
 	state := State{}
 
 	config: map[string]Language_Config
-	ok, err_msg := load_config(&config, "config.json")
+	ok, err_msg := load_config(&config, opt.c)
 	if !ok {
 		log.errorf("Loading configuration file failed: %s", err_msg)
 		os2.exit(1)

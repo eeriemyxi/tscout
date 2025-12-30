@@ -279,14 +279,6 @@ main :: proc() {
 		os2.exit(1)
 	}
 
-	state := State{}
-	defer {
-		for key in state.parsers {
-			ts.parser_delete(state.parsers[key])
-		}
-		delete(state.parsers)
-	}
-
 	config: map[string]Language_Config
 	config_arena: vmem.Arena
 	ensure(vmem.arena_init_growing(&config_arena) == nil)
@@ -299,12 +291,20 @@ main :: proc() {
 		os2.exit(1)
 	}
 
+	state := State{}
+	defer {
+		for key in state.parsers {
+			ts.parser_delete(state.parsers[key])
+		}
+		delete(state.parsers)
+	}
+
 	queue: [dynamic]os2.File_Info
 	defer delete(queue)
 
 	depth := 0
 
-	cur_file, err := os2.stat(opt.i, context.temp_allocator)
+	cur_file, err := os2.stat(opt.i, config_arena_alloc)
 	if err != nil {
 		log.errorf("Couldn't get stats for file: %v (err: %v)", opt.i, err)
 		os2.exit(1)
@@ -317,7 +317,7 @@ main :: proc() {
 			cur_file = pop_front(&queue)
 			file_path := cur_file.fullpath
 			if os2.is_dir(file_path) {
-				files, err := os2.read_all_directory_by_path(file_path, context.temp_allocator)
+				files, err := os2.read_all_directory_by_path(file_path, config_arena_alloc)
 				if err != nil {
 					log.errorf("Encountered error while reading directory: %v", opt.i)
 					os2.exit(1)
@@ -326,6 +326,7 @@ main :: proc() {
 			} else if os2.is_file(file_path) {
 				log.debugf("Processing file: %v", file_path)
 				handle_file(&state, config, file_path, opt.f)
+				log.debugf("Finished processing file: %v", file_path)
 			} else {
 				log.debugf("Skipping (not a file or directory): %v", file_path)
 				continue

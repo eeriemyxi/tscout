@@ -18,6 +18,10 @@ Language_Config :: struct {
 	filters:      [dynamic]string,
 }
 
+State :: struct {
+	parsers : map[string]ts.Parser
+}
+
 traverse_identifiers :: proc(
 	idendifiers: ^[dynamic]ts.Node,
 	code: string,
@@ -120,7 +124,7 @@ load_config :: proc(
 	}
 }
 
-handle_file :: proc(config: map[string]Language_Config, path: string, full_text: bool = false) {
+handle_file :: proc(state: ^State, config: map[string]Language_Config, path: string, full_text: bool = false) {
 	ext := filepath.ext(path)
 	file_conf, ok := config[ext]
 	if !ok {
@@ -136,16 +140,7 @@ handle_file :: proc(config: map[string]Language_Config, path: string, full_text:
 	}
 	code := string(file)
 
-	parser := ts.parser_new()
-	dll_path, jeok := join_exec_dir(string(file_conf.grammar_dll))
-	dll_path_cstr := strings.unsafe_string_to_cstring(dll_path)
-	if !jeok {
-		log.errorf("DLL path not found, try absolute path (ext='%v'): %v", ext, dll_path_cstr)
-	}
-	grammar_init := get_grammar(dll_path_cstr, file_conf.grammar_init)
-	grammar := grammar_init()
-	ts.parser_set_language(parser, grammar)
-
+	parser := get_parser(state, ext, file_conf)
 	tree := ts.parser_parse_string(parser, code)
 
 	root_node := ts.tree_root_node(tree)
@@ -173,6 +168,25 @@ get_grammar :: proc(path: cstring, symbol_name: cstring) -> proc() -> ts.Languag
 	return auto_cast posix.dlsym(handle, symbol_name)
 }
 
+get_parser :: proc(state: ^State, ext: string, file_conf: Language_Config) -> ts.Parser {
+	if parser, ok := state.parsers[ext]; ok {
+		log.debugf("Parser for ext='%v' was found in state: %v", ext, state.parsers)
+		return parser;
+	}
+    log.debugf("Parser for ext='%v' was NOT found in state: %v", ext, state.parsers)
+    parser := ts.parser_new()
+    dll_path, jeok := join_exec_dir(string(file_conf.grammar_dll))
+    dll_path_cstr := strings.unsafe_string_to_cstring(dll_path)
+    if !jeok {
+        log.errorf("DLL path not found, try absolute path (ext='%v'): %v", ext, dll_path_cstr)
+    }
+    grammar_init := get_grammar(dll_path_cstr, file_conf.grammar_init)
+    grammar := grammar_init()
+    ts.parser_set_language(parser, grammar)
+	state.parsers[ext] = parser
+	return parser
+}
+
 display_version :: proc() {
 	fmt.printfln(
 		"tscout version %v (%v %v)",
@@ -182,6 +196,7 @@ display_version :: proc() {
 	)
 }
 
+// TODO: flag to specify config file
 Options :: struct {
 	i: string `args:"pos=0" usage:"Input file or directory"`,
 	v: bool `usage:"Show version info"`,
@@ -211,6 +226,8 @@ main :: proc() {
 		log.error("Input file or directory wasn't provided. Check -help or -h")
 		os2.exit(1)
 	}
+
+	state := State{}
 
 	config: map[string]Language_Config
 	ok, err_msg := load_config(&config, "config.json")
@@ -243,7 +260,7 @@ main :: proc() {
 				for file in files do append(&queue, file)
 			} else if os2.is_file(file_path) {
 				log.debugf("Processing file: %v", file_path)
-				handle_file(config, file_path, opt.f)
+				handle_file(&state, config, file_path, opt.f)
 			} else {
 				log.debugf("Skipping (not a file or directory): %v", file_path)
 				continue

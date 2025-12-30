@@ -140,7 +140,6 @@ handle_file :: proc(
 ) {
 	ext := filepath.ext(path)
 	file_conf, ok := config[ext]
-	log.debug(config)
 	if !ok {
 		log.debugf("Configuration not found for %v, skipping...", path)
 		return
@@ -205,7 +204,6 @@ get_parser :: proc(
 		return parser, true, ""
 	}
 	log.debugf("Parser for ext='%v' was NOT found in state: %v", ext, state.parsers)
-	log.debug(file_conf)
 	parser = ts.parser_new()
 	dll_path, jeok := join_exec_dir(string(file_conf.grammar_dll))
 	dll_path_cstr := strings.unsafe_string_to_cstring(dll_path)

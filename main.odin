@@ -7,6 +7,7 @@ import "core:fmt"
 import "core:log"
 import "core:os"
 import "core:os/os2"
+import "core:mem"
 import "core:path/filepath"
 import "core:slice"
 import "core:strings"
@@ -57,7 +58,7 @@ traverse_identifiers :: proc(
 join_exec_dir :: proc(path: string) -> (res: string, ok: bool) {
 	path := path
 	if !filepath.is_abs(path) {
-		dir, err := os2.get_executable_directory(context.allocator)
+		dir, err := os2.get_executable_directory(context.temp_allocator)
 		if err != nil do return "", false
 		path = filepath.join({dir, path})
 	}
@@ -80,14 +81,17 @@ load_config :: proc(
 			config_path,
 		)
 	}
-	file, ferr := os2.read_entire_file(config_path, context.allocator)
+	file, ferr := os2.read_entire_file(config_path, context.temp_allocator)
 	if ferr != nil {
 		return false, fmt.tprintf("couldn't read file: %v (err: %v)", config_path, ferr)
 	}
-	value, jerr := json.parse(file)
+	value, jerr := json.parse(file, allocator=context.temp_allocator)
 	if jerr != nil {
 		return false, fmt.tprintf("couldn't parse JSON: %v (err: %v)", config_path, jerr)
 	}
+
+    defer free_all(context.temp_allocator)
+
 	#partial switch config in value {
 	case json.Object:
 		for key in config {
@@ -117,11 +121,12 @@ load_config :: proc(
 				)
 			}
 		}
-		log.debugf("Parsed configuration: %v", config_map^)
+		log.debugf("Parsed configuration: %v", config_map)
 		return true, ""
 	case:
 		return false, fmt.tprintf("invalid configuration file: %v", config_path)
 	}
+
 }
 
 handle_file :: proc(state: ^State, config: map[string]Language_Config, path: string, full_text: bool = false) {
@@ -133,7 +138,7 @@ handle_file :: proc(state: ^State, config: map[string]Language_Config, path: str
 	}
 	log.debugf("Loaded configuration for %v: %v", path, file_conf)
 
-	file, ferr := os2.read_entire_file(path, allocator = context.allocator)
+	file, ferr := os2.read_entire_file(path, context.temp_allocator)
 	if ferr != nil {
 		log.errorf("File not found: %v", path)
 		return
@@ -165,6 +170,8 @@ handle_file :: proc(state: ^State, config: map[string]Language_Config, path: str
 			full_text ? text : strings.truncate_to_rune(text, '\n'),
 		)
 	}
+
+	free_all(context.temp_allocator)
 }
 
 get_grammar :: proc(path: cstring, symbol_name: cstring) -> proc() -> ts.Language {
@@ -212,6 +219,22 @@ Options :: struct {
 opt: Options
 
 main :: proc() {
+    when ODIN_DEBUG {
+        track: mem.Tracking_Allocator
+        mem.tracking_allocator_init(&track, context.allocator)
+        context.allocator = mem.tracking_allocator(&track)
+
+        defer {
+            if len(track.allocation_map) > 0 {
+                fmt.eprintf("=== %v allocations not freed: ===\n", len(track.allocation_map))
+                for _, entry in track.allocation_map {
+                    fmt.eprintf("- %v bytes @ %v\n", entry.size, entry.location)
+                }
+            }
+            mem.tracking_allocator_destroy(&track)
+        }
+    }
+
 	opt.l = .Info
 	opt.d = 1
 	opt.f = false
@@ -235,6 +258,8 @@ main :: proc() {
 	state := State{}
 
 	config: map[string]Language_Config
+    defer delete(config)
+
 	ok, err_msg := load_config(&config, opt.c)
 	if !ok {
 		log.errorf("Loading configuration file failed: %s", err_msg)
@@ -242,9 +267,11 @@ main :: proc() {
 	}
 
 	queue: [dynamic]os2.File_Info
+	defer delete(queue)
+
 	depth := 0
 
-	cur_file, err := os2.stat(opt.i, context.allocator)
+	cur_file, err := os2.stat(opt.i, context.temp_allocator)
 	if err != nil {
 		log.errorf("Couldn't get stats for file: %v (err: %v)", opt.i, err)
 		os2.exit(1)
@@ -257,7 +284,7 @@ main :: proc() {
 			cur_file = pop_front(&queue)
 			file_path := cur_file.fullpath
 			if os2.is_dir(file_path) {
-				files, err := os2.read_all_directory_by_path(file_path, context.allocator)
+				files, err := os2.read_all_directory_by_path(file_path, context.temp_allocator)
 				if err != nil {
 					log.errorf("Encountered error while reading directory: %v", opt.i)
 					os2.exit(1)
@@ -273,4 +300,6 @@ main :: proc() {
 		}
 		depth += 1
 	}
+
+	free_all(context.temp_allocator)
 }

@@ -246,7 +246,7 @@ main :: proc() {
 
 	cur_file, err := os2.stat(opt.i, context.allocator)
 	if err != nil {
-		log.errorf("Couldn't get stats for file: %v", cur_file)
+		log.errorf("Couldn't get stats for file: %v (err: %v)", opt.i, err)
 		os2.exit(1)
 	}
 	append(&queue, cur_file)

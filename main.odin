@@ -8,6 +8,7 @@ import "core:log"
 import "core:os"
 import "core:os/os2"
 import "core:mem"
+import vmem "core:mem/virtual"
 import "core:path/filepath"
 import "core:slice"
 import "core:strings"
@@ -21,6 +22,7 @@ Language_Config :: struct {
 
 State :: struct {
 	parsers : map[string]ts.Parser
+	
 }
 
 traverse_identifiers :: proc(
@@ -30,6 +32,8 @@ traverse_identifiers :: proc(
 	parent_filters: []string,
 ) {
 	queue: [dynamic]ts.Node
+	defer delete(queue)
+
 	append(&queue, root_node)
 
 	for len(queue) != 0 {
@@ -68,6 +72,7 @@ join_exec_dir :: proc(path: string) -> (res: string, ok: bool) {
 load_config :: proc(
 	config_map: ^map[string]Language_Config,
 	config_path: string,
+	allocator := context.allocator
 ) -> (
 	ok: bool,
 	err_msg: string,
@@ -81,21 +86,19 @@ load_config :: proc(
 			config_path,
 		)
 	}
-	file, ferr := os2.read_entire_file(config_path, context.temp_allocator)
+	file, ferr := os2.read_entire_file(config_path, allocator)
 	if ferr != nil {
 		return false, fmt.tprintf("couldn't read file: %v (err: %v)", config_path, ferr)
 	}
-	value, jerr := json.parse(file, allocator=context.temp_allocator)
+	value, jerr := json.parse(file, allocator=allocator)
 	if jerr != nil {
 		return false, fmt.tprintf("couldn't parse JSON: %v (err: %v)", config_path, jerr)
 	}
 
-    defer free_all(context.temp_allocator)
-
 	#partial switch config in value {
 	case json.Object:
 		for key in config {
-			_, entry, is_new, err := map_entry(config_map, key)
+			_, entry, is_new, err := map_entry(config_map, strings.clone(key, allocator))
 			if err != nil {
 				log.warnf(
 					"Something went wrong when adding entry for key='%v' with err=%v. Skipping.",
@@ -106,13 +109,13 @@ load_config :: proc(
 			}
 			#partial switch c in config[key] {
 			case json.Object:
-				entry.grammar_dll = strings.unsafe_string_to_cstring(
-					c["grammar_dll"].(json.String),
+				entry.grammar_dll = strings.clone_to_cstring(
+					c["grammar_dll"].(json.String), allocator
 				)
-				entry.grammar_init = strings.unsafe_string_to_cstring(
-					c["grammar_init"].(json.String),
+				entry.grammar_init = strings.clone_to_cstring(
+					c["grammar_init"].(json.String), allocator
 				)
-				for fil in c["filters"].(json.Array) do append(&entry.filters, fil.(json.String))
+				for fil in c["filters"].(json.Array) do append(&entry.filters, strings.clone(fil.(json.String), allocator))
 			case:
 				return false, fmt.tprintf(
 					"invalid configuration for extension '.%v' for configuration file '%v'",
@@ -126,12 +129,12 @@ load_config :: proc(
 	case:
 		return false, fmt.tprintf("invalid configuration file: %v", config_path)
 	}
-
 }
 
 handle_file :: proc(state: ^State, config: map[string]Language_Config, path: string, full_text: bool = false) {
 	ext := filepath.ext(path)
 	file_conf, ok := config[ext]
+	log.debug(config)
 	if !ok {
 		log.debugf("Configuration not found for %v, skipping...", path)
 		return
@@ -151,11 +154,14 @@ handle_file :: proc(state: ^State, config: map[string]Language_Config, path: str
 		return
 	}
 	tree := ts.parser_parse_string(parser, code)
+	defer ts.tree_delete(tree)
 
 	root_node := ts.tree_root_node(tree)
 	log.debugf("S-expression tree: %v", ts.node_string(root_node))
 
 	identifiers: [dynamic]ts.Node
+	defer delete(identifiers)
+
 	traverse_identifiers(&identifiers, code, root_node, file_conf.filters[:])
 
 	for ident in identifiers {
@@ -185,6 +191,7 @@ get_parser :: proc(state: ^State, ext: string, file_conf: Language_Config) -> (p
 		return parser, true, "";
 	}
     log.debugf("Parser for ext='%v' was NOT found in state: %v", ext, state.parsers)
+	log.debug(file_conf)
     parser = ts.parser_new()
     dll_path, jeok := join_exec_dir(string(file_conf.grammar_dll))
     dll_path_cstr := strings.unsafe_string_to_cstring(dll_path)
@@ -217,6 +224,12 @@ Options :: struct {
 }
 
 opt: Options
+
+destroy_language_config :: proc(conf: ^Language_Config) {
+	delete(conf.grammar_dll)
+	delete(conf.grammar_init)
+	delete(conf.filters)
+}
 
 main :: proc() {
     when ODIN_DEBUG {
@@ -256,11 +269,20 @@ main :: proc() {
 	}
 
 	state := State{}
+	defer {
+		for key in state.parsers {
+			ts.parser_delete(state.parsers[key])
+		}
+	}
 
-	config: map[string]Language_Config
-    defer delete(config)
+    config: map[string]Language_Config
+    config_arena: vmem.Arena
+    config_arena_err := vmem.arena_init_growing(&config_arena)
+    ensure(config_arena_err == nil)
+    config_arena_alloc := vmem.arena_allocator(&config_arena)
+    defer vmem.arena_destroy(&config_arena)
 
-	ok, err_msg := load_config(&config, opt.c)
+	ok, err_msg := load_config(&config, opt.c, config_arena_alloc)
 	if !ok {
 		log.errorf("Loading configuration file failed: %s", err_msg)
 		os2.exit(1)

@@ -5,10 +5,10 @@ import "core:encoding/json"
 import "core:flags"
 import "core:fmt"
 import "core:log"
-import "core:os"
-import "core:os/os2"
 import "core:mem"
 import vmem "core:mem/virtual"
+import "core:os"
+import "core:os/os2"
 import "core:path/filepath"
 import "core:slice"
 import "core:strings"
@@ -21,8 +21,7 @@ Language_Config :: struct {
 }
 
 State :: struct {
-	parsers : map[string]ts.Parser
-	
+	parsers: map[string]ts.Parser,
 }
 
 traverse_identifiers :: proc(
@@ -72,13 +71,14 @@ join_exec_dir :: proc(path: string) -> (res: string, ok: bool) {
 load_config :: proc(
 	config_map: ^map[string]Language_Config,
 	config_path: string,
-	allocator := context.allocator
+	allocator := context.allocator,
 ) -> (
 	ok: bool,
 	err_msg: string,
 ) {
-	config_path := config_path
-	jeok: bool
+	context.allocator = allocator
+
+	config_path, jeok := config_path, true
 	config_path, jeok = join_exec_dir(config_path)
 	if !jeok {
 		return false, fmt.tprintf(
@@ -86,11 +86,13 @@ load_config :: proc(
 			config_path,
 		)
 	}
+
 	file, ferr := os2.read_entire_file(config_path, allocator)
 	if ferr != nil {
 		return false, fmt.tprintf("couldn't read file: %v (err: %v)", config_path, ferr)
 	}
-	value, jerr := json.parse(file, allocator=allocator)
+
+	value, jerr := json.parse(file, allocator = allocator)
 	if jerr != nil {
 		return false, fmt.tprintf("couldn't parse JSON: %v (err: %v)", config_path, jerr)
 	}
@@ -98,7 +100,7 @@ load_config :: proc(
 	#partial switch config in value {
 	case json.Object:
 		for key in config {
-			_, entry, is_new, err := map_entry(config_map, strings.clone(key, allocator))
+			_, entry, is_new, err := map_entry(config_map, strings.clone(key))
 			if err != nil {
 				log.warnf(
 					"Something went wrong when adding entry for key='%v' with err=%v. Skipping.",
@@ -109,13 +111,11 @@ load_config :: proc(
 			}
 			#partial switch c in config[key] {
 			case json.Object:
-				entry.grammar_dll = strings.clone_to_cstring(
-					c["grammar_dll"].(json.String), allocator
-				)
-				entry.grammar_init = strings.clone_to_cstring(
-					c["grammar_init"].(json.String), allocator
-				)
-				for fil in c["filters"].(json.Array) do append(&entry.filters, strings.clone(fil.(json.String), allocator))
+				entry.grammar_dll = strings.clone_to_cstring(c["grammar_dll"].(json.String))
+				entry.grammar_init = strings.clone_to_cstring(c["grammar_init"].(json.String))
+				for fil in c["filters"].(json.Array) {
+					append(&entry.filters, strings.clone(fil.(json.String)))
+				}
 			case:
 				return false, fmt.tprintf(
 					"invalid configuration for extension '.%v' for configuration file '%v'",
@@ -131,7 +131,12 @@ load_config :: proc(
 	}
 }
 
-handle_file :: proc(state: ^State, config: map[string]Language_Config, path: string, full_text: bool = false) {
+handle_file :: proc(
+	state: ^State,
+	config: map[string]Language_Config,
+	path: string,
+	full_text: bool = false,
+) {
 	ext := filepath.ext(path)
 	file_conf, ok := config[ext]
 	log.debug(config)
@@ -185,22 +190,34 @@ get_grammar :: proc(path: cstring, symbol_name: cstring) -> proc() -> ts.Languag
 	return auto_cast posix.dlsym(handle, symbol_name)
 }
 
-get_parser :: proc(state: ^State, ext: string, file_conf: Language_Config) -> (parser: ts.Parser, ok: bool, err_msg: string) {
+get_parser :: proc(
+	state: ^State,
+	ext: string,
+	file_conf: Language_Config,
+) -> (
+	parser: ts.Parser,
+	ok: bool,
+	err_msg: string,
+) {
 	if parser, ok := state.parsers[ext]; ok {
 		log.debugf("Parser for ext='%v' was found in state: %v", ext, state.parsers)
-		return parser, true, "";
+		return parser, true, ""
 	}
-    log.debugf("Parser for ext='%v' was NOT found in state: %v", ext, state.parsers)
+	log.debugf("Parser for ext='%v' was NOT found in state: %v", ext, state.parsers)
 	log.debug(file_conf)
-    parser = ts.parser_new()
-    dll_path, jeok := join_exec_dir(string(file_conf.grammar_dll))
-    dll_path_cstr := strings.unsafe_string_to_cstring(dll_path)
-    if !jeok {
-        return parser, false, fmt.tprintf("DLL path not found, try absolute path (ext='%v'): %v", ext, dll_path_cstr)
-    }
-    grammar_init := get_grammar(dll_path_cstr, file_conf.grammar_init)
-    grammar := grammar_init()
-    ts.parser_set_language(parser, grammar)
+	parser = ts.parser_new()
+	dll_path, jeok := join_exec_dir(string(file_conf.grammar_dll))
+	dll_path_cstr := strings.unsafe_string_to_cstring(dll_path)
+	if !jeok {
+		return parser, false, fmt.tprintf(
+			"DLL path not found, try absolute path (ext='%v'): %v",
+			ext,
+			dll_path_cstr,
+		)
+	}
+	grammar_init := get_grammar(dll_path_cstr, file_conf.grammar_init)
+	grammar := grammar_init()
+	ts.parser_set_language(parser, grammar)
 	state.parsers[ext] = parser
 	return parser, true, ""
 }
@@ -225,28 +242,22 @@ Options :: struct {
 
 opt: Options
 
-destroy_language_config :: proc(conf: ^Language_Config) {
-	delete(conf.grammar_dll)
-	delete(conf.grammar_init)
-	delete(conf.filters)
-}
-
 main :: proc() {
-    when ODIN_DEBUG {
-        track: mem.Tracking_Allocator
-        mem.tracking_allocator_init(&track, context.allocator)
-        context.allocator = mem.tracking_allocator(&track)
+	when ODIN_DEBUG {
+		track: mem.Tracking_Allocator
+		mem.tracking_allocator_init(&track, context.allocator)
+		context.allocator = mem.tracking_allocator(&track)
 
-        defer {
-            if len(track.allocation_map) > 0 {
-                fmt.eprintf("=== %v allocations not freed: ===\n", len(track.allocation_map))
-                for _, entry in track.allocation_map {
-                    fmt.eprintf("- %v bytes @ %v\n", entry.size, entry.location)
-                }
-            }
-            mem.tracking_allocator_destroy(&track)
-        }
-    }
+		defer {
+			if len(track.allocation_map) > 0 {
+				fmt.eprintf("=== %v allocations not freed: ===\n", len(track.allocation_map))
+				for _, entry in track.allocation_map {
+					fmt.eprintf("- %v bytes @ %v\n", entry.size, entry.location)
+				}
+			}
+			mem.tracking_allocator_destroy(&track)
+		}
+	}
 
 	opt.l = .Info
 	opt.d = 1
@@ -273,14 +284,15 @@ main :: proc() {
 		for key in state.parsers {
 			ts.parser_delete(state.parsers[key])
 		}
+		delete(state.parsers)
 	}
 
-    config: map[string]Language_Config
-    config_arena: vmem.Arena
-    config_arena_err := vmem.arena_init_growing(&config_arena)
-    ensure(config_arena_err == nil)
-    config_arena_alloc := vmem.arena_allocator(&config_arena)
-    defer vmem.arena_destroy(&config_arena)
+	config: map[string]Language_Config
+	config_arena: vmem.Arena
+	config_arena_err := vmem.arena_init_growing(&config_arena)
+	ensure(config_arena_err == nil)
+	config_arena_alloc := vmem.arena_allocator(&config_arena)
+	defer vmem.arena_destroy(&config_arena)
 
 	ok, err_msg := load_config(&config, opt.c, config_arena_alloc)
 	if !ok {

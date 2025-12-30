@@ -205,7 +205,7 @@ get_parser :: proc(
 	}
 	log.debugf("Parser for ext='%v' was NOT found in state: %v", ext, state.parsers)
 	parser = ts.parser_new()
-	dll_path, jeok := join_exec_dir(string(file_conf.grammar_dll))
+	dll_path, jeok := join_exec_dir(string(file_conf.grammar_dll), context.temp_allocator)
 	dll_path_cstr := strings.unsafe_string_to_cstring(dll_path)
 	if !jeok {
 		return parser, false, fmt.tprintf(

@@ -1,0 +1,41 @@
+on:
+  push:
+    tags:
+      - "v*"
+
+name: Upload Binary to Release
+jobs:
+  build:
+    permissions: write-all
+    name: Upload Binaries to Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Odin Environment
+        uses: laytan/setup-odin@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          release: false
+          branch: master
+          llvm-version: 18
+          build-type: debug
+          repository: https://github.com/odin-lang/Odin
+
+      - name: Build Binaries
+        run: |
+          odin run odin-tree-sitter/build -- install
+          make OPTIMIZATION=aggressive TARGET=bin/tscout-linux-amd64.bin PLATFORM=linux_amd64
+          sha256sum bin/tscout-linux-amd64.bin > bin/tscout-linux-amd64.sha256
+
+      - name: Upload Binaries to Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: |
+            bin/tscout-linux-amd64.bin
+            bin/tscout-linux-amd64.sha256

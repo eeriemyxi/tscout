@@ -88,6 +88,23 @@ By default it looks for the configuration file `config.json` at the directory wh
 Relative paths are joined with the directory where the `tscout` executable
 resides. Use absolute paths to avoid that if necessary.
 
+# Installation
+Tscout has officially only been tested on a Linux AMD64 system.
+
+### Prebuilt Binaries
+You can download prebuilt binaries from [Github Releases](https://github.com/eeriemyxi/tscout/releases/latest). Platforms included:
+- Linux AMD64
+
+### Compile from Source
+Tscout was developed using the [Odin](https://odin-lang.org) programming language.
+
+```bash
+git clone --recurse-submodules https://github.com/eeriemyxi/tscout
+cd tscout
+make
+bin/tscout -help
+```
+
 # Command-line Arguments
 Help: `tscout -help`
 

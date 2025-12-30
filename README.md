@@ -15,7 +15,7 @@ https://github.com/user-attachments/assets/77330090-8522-4377-96fe-cebf1b7a6ec5
 ### Emacs
 https://github.com/user-attachments/assets/c141e345-9731-45a6-815a-8fe0fdb0a3b2
 #### Configuration
-This was largely LLM-generated because I don't know Elisp and neither don't want to.
+This was largely LLM-generated because I don't know Elisp and neither want to.
 ```lisp
 (defun my/tscout--jump (cand)
   (when (string-match

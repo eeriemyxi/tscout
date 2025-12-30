@@ -313,7 +313,8 @@ main :: proc() {
 
 	for len(queue) != 0 {
 		if depth > opt.d && opt.d != -1 do break
-		for i := 0; i < len(queue); i += 1 {
+		level_count := len(queue)
+		for i := 0; i < level_count; i += 1 {
 			cur_file = pop_front(&queue)
 			file_path := cur_file.fullpath
 			if os2.is_dir(file_path) {

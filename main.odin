@@ -289,8 +289,7 @@ main :: proc() {
 
 	config: map[string]Language_Config
 	config_arena: vmem.Arena
-	config_arena_err := vmem.arena_init_growing(&config_arena)
-	ensure(config_arena_err == nil)
+	ensure(vmem.arena_init_growing(&config_arena) == nil)
 	config_arena_alloc := vmem.arena_allocator(&config_arena)
 	defer vmem.arena_destroy(&config_arena)
 

@@ -59,11 +59,12 @@ traverse_identifiers :: proc(
 }
 
 join_exec_dir :: proc(path: string, allocator := context.allocator) -> (res: string, ok: bool) {
+	context.allocator = allocator
 	path := path
 	if !filepath.is_abs(path) {
 		dir, err := os2.get_executable_directory(context.temp_allocator)
 		if err != nil do return "", false
-		path = filepath.join({dir, path}, allocator)
+		path = filepath.join({dir, path})
 	}
 	return path, true
 }
@@ -268,6 +269,7 @@ main :: proc() {
 	flags.parse_or_exit(&opt, os.args, style)
 
 	context.logger = log.create_console_logger(opt.l)
+	defer log.destroy_console_logger(context.logger)
 
 	if opt.v {
 		display_version()

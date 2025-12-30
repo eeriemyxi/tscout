@@ -11,7 +11,7 @@ adding support for new parsers is as trivial as editing a JSON configuration fil
 > support is planned in upcoming releases.
 
 # Demo
-To be added.
+https://github.com/user-attachments/assets/77330090-8522-4377-96fe-cebf1b7a6ec5
 
 # Example Configuration
 ```json

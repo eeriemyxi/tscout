@@ -140,7 +140,11 @@ handle_file :: proc(state: ^State, config: map[string]Language_Config, path: str
 	}
 	code := string(file)
 
-	parser := get_parser(state, ext, file_conf)
+	parser, gpok, gpemsg := get_parser(state, ext, file_conf)
+	if !gpok {
+		log.errorf("Error while handling file '%v': %v", path, gpemsg)
+		return
+	}
 	tree := ts.parser_parse_string(parser, code)
 
 	root_node := ts.tree_root_node(tree)
@@ -168,23 +172,23 @@ get_grammar :: proc(path: cstring, symbol_name: cstring) -> proc() -> ts.Languag
 	return auto_cast posix.dlsym(handle, symbol_name)
 }
 
-get_parser :: proc(state: ^State, ext: string, file_conf: Language_Config) -> ts.Parser {
+get_parser :: proc(state: ^State, ext: string, file_conf: Language_Config) -> (parser: ts.Parser, ok: bool, err_msg: string) {
 	if parser, ok := state.parsers[ext]; ok {
 		log.debugf("Parser for ext='%v' was found in state: %v", ext, state.parsers)
-		return parser;
+		return parser, true, "";
 	}
     log.debugf("Parser for ext='%v' was NOT found in state: %v", ext, state.parsers)
-    parser := ts.parser_new()
+    parser = ts.parser_new()
     dll_path, jeok := join_exec_dir(string(file_conf.grammar_dll))
     dll_path_cstr := strings.unsafe_string_to_cstring(dll_path)
     if !jeok {
-        log.errorf("DLL path not found, try absolute path (ext='%v'): %v", ext, dll_path_cstr)
+        return parser, false, fmt.tprintf("DLL path not found, try absolute path (ext='%v'): %v", ext, dll_path_cstr)
     }
     grammar_init := get_grammar(dll_path_cstr, file_conf.grammar_init)
     grammar := grammar_init()
     ts.parser_set_language(parser, grammar)
 	state.parsers[ext] = parser
-	return parser
+	return parser, true, ""
 }
 
 display_version :: proc() {

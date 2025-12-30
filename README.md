@@ -12,6 +12,50 @@ adding support for new parsers is as trivial as editing a JSON configuration fil
 
 # Demo
 https://github.com/user-attachments/assets/77330090-8522-4377-96fe-cebf1b7a6ec5
+### Emacs
+To be added.
+#### Configuration
+This was largely LLM-generated because I don't know Elisp and neither don't want to.
+```lisp
+(defun my/tscout--jump (cand)
+  (when (string-match
+         "^\\([^:]+\\):\\([0-9]+\\):\\([0-9]+\\):"
+         cand)
+    (let ((file (match-string 1 cand))
+          (line (string-to-number (match-string 2 cand)))
+          (col  (string-to-number (match-string 3 cand))))
+      (find-file file)
+      (goto-char (point-min))
+      (forward-line (1- line))
+      (move-to-column (- col 1)))))
+
+(defun my/tscout (&optional dir)
+  (interactive)
+  (let* ((default-directory
+          (or dir
+              ;; Projectile (preferred)
+              (when (fboundp 'projectile-project-root)
+                (ignore-errors (projectile-project-root)))
+              ;; project.el fallback
+              (and (fboundp 'project-current)
+                   (when-let ((proj (project-current)))
+                     (project-root proj)))
+              default-directory))
+         (candidates
+          (process-lines "tscout" "." "-d:-1")))
+    (unless candidates
+      (user-error "No tscout results found"))
+    (my/tscout--jump
+     (if (fboundp 'consult--read)
+         (consult--read
+          candidates
+          :prompt "tscout: ")
+       (completing-read
+        "tscout: "
+        candidates
+        nil
+        t)))))
+```
 
 # Example Configuration
 ```json

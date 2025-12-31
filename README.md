@@ -2,13 +2,11 @@
 Tscout utilizes tree-sitter language grammar dynamic libraries to scout for
 useful (configurable) identifiers from source files and emits them on standard output.
 
-The dynamic libraries are loaded at runtime via `dlopen` and `dlsym` so that
-adding support for new parsers is as trivial as editing a JSON configuration file.
+The dynamic libraries are loaded at runtime so that adding support for new
+parsers is as trivial as editing a JSON configuration file.
 
-> [!IMPORTANT] 
-> Only POSIX-based systems are supported at the moment. This is
-> because `dlopen` and `dlsym` are only defined by the POSIX standard. Windows
-> support is planned in upcoming releases.
+It works on both Windows and Linux. May work on other systems too, but I haven't
+tested.
 
 # Demo
 https://github.com/user-attachments/assets/77330090-8522-4377-96fe-cebf1b7a6ec5
@@ -95,7 +93,7 @@ Relative paths are joined with the directory where the `tscout` executable
 resides. Use absolute paths to avoid that if necessary.
 
 # Installation
-Tscout has officially only been tested on a Linux AMD64 system.
+Tscout has officially only been tested on Linux and Windows AMD64 system.
 
 ### Prebuilt Binaries
 You can download prebuilt binaries from [Github
@@ -103,6 +101,7 @@ Releases](https://github.com/eeriemyxi/tscout/releases/latest). Platforms
 included:
 
 - Linux AMD64
+- Windows AMD64
 
 ### Compile from Source
 Tscout was developed using the [Odin](https://odin-lang.org) programming language.

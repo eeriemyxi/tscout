@@ -12,7 +12,7 @@ import "core:os/os2"
 import "core:path/filepath"
 import "core:slice"
 import "core:strings"
-import "core:sys/posix"
+import "core:dynlib"
 
 Language_Config :: struct {
 	grammar_dll:  cstring,
@@ -185,9 +185,9 @@ handle_file :: proc(
 	free_all(context.temp_allocator)
 }
 
-get_grammar :: proc(path: cstring, symbol_name: cstring) -> proc() -> ts.Language {
-	handle := posix.dlopen(path, posix.RTLD_LOCAL + {.LAZY})
-	return auto_cast posix.dlsym(handle, symbol_name)
+get_grammar :: proc(path: string, symbol_name: string) -> proc() -> ts.Language {
+	library, did_load := dynlib.load_library(path)
+	return auto_cast dynlib.symbol_address(library, symbol_name)
 }
 
 get_parser :: proc(
@@ -206,15 +206,14 @@ get_parser :: proc(
 	log.debugf("Parser for ext='%v' was NOT found in state: %v", ext, state.parsers)
 	parser = ts.parser_new()
 	dll_path, jeok := join_exec_dir(string(file_conf.grammar_dll), context.temp_allocator)
-	dll_path_cstr := strings.unsafe_string_to_cstring(dll_path)
 	if !jeok {
 		return parser, false, fmt.tprintf(
 			"DLL path not found, try absolute path (ext='%v'): %v",
 			ext,
-			dll_path_cstr,
+			dll_path,
 		)
 	}
-	grammar_init := get_grammar(dll_path_cstr, file_conf.grammar_init)
+	grammar_init := get_grammar(dll_path, string(file_conf.grammar_init))
 	grammar := grammar_init()
 	ts.parser_set_language(parser, grammar)
 	state.parsers[ext] = parser

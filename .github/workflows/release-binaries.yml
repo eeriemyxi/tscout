@@ -22,29 +22,40 @@ jobs:
         uses: laytan/setup-odin@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          release: false
-          branch: master
-          llvm-version: 18
-          build-type: debug
-          repository: https://github.com/odin-lang/Odin
+          # release: false
+          # branch: master
+          # llvm-version: 18
+          # build-type: debug
+          # repository: https://github.com/odin-lang/Odin
 
-
-      - name: Build Binaries
+      - name: Build Binaries (Linux)
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           mkdir -p bin
+          make OPTIMIZATION=aggressive TARGET=bin/tscout-linux-amd64.bin PLATFORM=linux_amd64
+          sha256sum bin/tscout-linux-amd64.bin > bin/tscout-linux-amd64.sha256
 
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            make OPTIMIZATION=aggressive \
-                 TARGET=bin/tscout-linux-amd64.bin \
-                 PLATFORM=linux_amd64
-            sha256sum bin/tscout-linux-amd64.bin > bin/tscout-linux-amd64.sha256
-          else
-            make OPTIMIZATION=aggressive \
-                 TARGET=bin/tscout-windows-amd64.exe \
-                 PLATFORM=windows_amd64
-            sha256sum bin/tscout-windows-amd64.exe > bin/tscout-windows-amd64.sha256
-          fi
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+
+      - uses: seanmiddleditch/gha-setup-ninja@v4
+        if: runner.os == 'Windows'
+
+      - name: Build tree-sitter
+        if: runner.os == 'Windows'
+        run: |
+          git clone --depth=1 --branch=v0.26.3 https://github.com/tree-sitter/tree-sitter.git odin-tree-sitter/tree-sitter
+          cmake -S odin-tree-sitter/tree-sitter -B odin-tree-sitter/tree-sitter/build -G Ninja -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="/MT" -DCMAKE_C_FLAGS_RELEASE="/MT"
+          cmake --build odin-tree-sitter/tree-sitter/build
+          move odin-tree-sitter/tree-sitter/build/tree-sitter.lib odin-tree-sitter/tree-sitter/libtree-sitter.lib
+
+      - name: Build Binaries (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          make OPTIMIZATION=aggressive TARGET=bin/tscout-windows-amd64.exe PLATFORM=windows_amd64
+          certutil -hashfile bin\tscout-windows-amd64.exe SHA256 > bin\tscout-windows-amd64.sha256
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
@@ -63,10 +74,13 @@ jobs:
         with:
           path: dist
 
+      - run: |
+          mkdir release
+          cp dist/*/* release/
+
       - name: Publish Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: |
-            dist/**/*
+          files: release/*

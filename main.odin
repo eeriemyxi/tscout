@@ -93,7 +93,7 @@ load_config :: proc(
 		return false, fmt.tprintf("couldn't read file: %v (err: %v)", config_path, ferr)
 	}
 
-	value, jerr := json.parse(file, allocator = allocator)
+	value, jerr := json.parse(file, .JSON5, allocator = allocator)
 	if jerr != nil {
 		return false, fmt.tprintf("couldn't parse JSON: %v (err: %v)", config_path, jerr)
 	}
@@ -262,7 +262,7 @@ main :: proc() {
 	opt.l = .Info
 	opt.d = 1
 	opt.f = false
-	opt.c = "config.json"
+	opt.c = "config.json5"
 
 	style: flags.Parsing_Style = .Odin
 	flags.parse_or_exit(&opt, os.args, style)

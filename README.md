@@ -56,22 +56,22 @@ This was largely LLM-generated because I don't know Elisp and neither want to.
 ```
 
 # Example Configuration
-```json
+```json5
 {
   ".odin": {
-    "grammar_dll": "../libtree-sitter-odin.so",
-    "grammar_init": "tree_sitter_odin",
-    "filters": ["procedure_declaration", "struct_declaration", "var_declaration", "const_declaration", "enum_declaration"]
+    grammar_dll: "../libtree-sitter-odin.so",
+    grammar_init: "tree_sitter_odin",
+    filters: ["procedure_declaration", "struct_declaration", "var_declaration", "const_declaration", "enum_declaration"]
   },
   ".c": {
-    "grammar_dll": "../libtree-sitter-c.so",
-    "grammar_init": "tree_sitter_c",
-    "filters": ["function_declarator", "struct_specifier", "declaration", "type_definition", "enum_specifier", "preproc_def", "preproc_function_def"]
+    grammar_dll: "../libtree-sitter-c.so",
+    grammar_init: "tree_sitter_c",
+    filters: ["function_declarator", "struct_specifier", "declaration", "type_definition", "enum_specifier", "preproc_def", "preproc_function_def"]
   },
   ".h": {
-    "grammar_dll": "../libtree-sitter-c.so",
-    "grammar_init": "tree_sitter_c",
-    "filters": ["function_declarator", "struct_specifier", "declaration", "type_definition", "enum_specifier", "preproc_def", "preproc_function_def"]
+    grammar_dll: "../libtree-sitter-c.so",
+    grammar_init: "tree_sitter_c",
+    filters: ["function_declarator", "struct_specifier", "declaration", "type_definition", "enum_specifier", "preproc_def", "preproc_function_def"]
   }
 }
 ```
@@ -86,8 +86,11 @@ This was largely LLM-generated because I don't know Elisp and neither want to.
 > The current working directory is _not_ used. This may be implemented as an
 > optional flag in the future.
 
-By default it looks for the configuration file `config.json` at the directory
+By default it looks for the configuration file `config.json5` at the directory
 where the `tscout` executable resides. Use `-c` flag to override it.
+
+> [!TIP]
+> Learn about JSON5: https://json5.org
 
 Relative paths are joined with the directory where the `tscout` executable
 resides. Use absolute paths to avoid that if necessary.

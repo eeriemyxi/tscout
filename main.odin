@@ -98,38 +98,39 @@ load_config :: proc(
 		return false, fmt.tprintf("couldn't parse JSON: %v (err: %v)", config_path, jerr)
 	}
 
-	#partial switch config in value {
-	case json.Object:
-		for key in config {
-			_, entry, is_new, err := map_entry(config_map, strings.clone(key))
-			if err != nil {
-				log.warnf(
-					"Something went wrong when adding entry for key='%v' with err=%v. Skipping.",
-					key,
-					err,
-				)
-				continue
-			}
-			#partial switch c in config[key] {
-			case json.Object:
-				entry.grammar_dll = strings.clone_to_cstring(c["grammar_dll"].(json.String))
-				entry.grammar_init = strings.clone_to_cstring(c["grammar_init"].(json.String))
-				for fil in c["filters"].(json.Array) {
-					append(&entry.filters, strings.clone(fil.(json.String)))
-				}
-			case:
-				return false, fmt.tprintf(
-					"invalid configuration for extension '%v' for configuration file '%v'",
-					key,
-					config_path,
-				)
-			}
+	log.debugf("type_of(value)=%v", typeid_of(type_of(value)))
+
+	config, vok := value.(json.Object)
+    if !vok {
+        return false, fmt.tprintf("invalid configuration file: %v", config_path)
+    }
+
+    for key in config {
+        _, entry, is_new, err := map_entry(config_map, strings.clone(key))
+        if err != nil {
+            log.warnf(
+                "Something went wrong when adding entry for key='%v' with err=%v. Skipping.",
+                key,
+                err,
+            )
+            continue
+        }
+        c, cok := config[key].(json.Object)
+        if !cok {
+			return false, fmt.tprintf(
+				"invalid configuration for extension '%v' for configuration file '%v'",
+				key,
+				config_path,
+			)
 		}
-		log.debugf("Parsed configuration: %v", config_map)
-		return true, ""
-	case:
-		return false, fmt.tprintf("invalid configuration file: %v", config_path)
-	}
+        entry.grammar_dll = strings.clone_to_cstring(c["grammar_dll"].(json.String))
+        entry.grammar_init = strings.clone_to_cstring(c["grammar_init"].(json.String))
+        for fil in c["filters"].(json.Array) {
+            append(&entry.filters, strings.clone(fil.(json.String)))
+        }
+    }
+    log.debugf("Parsed configuration: %v", config_map)
+    return true, ""
 }
 
 handle_file :: proc(

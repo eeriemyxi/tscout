@@ -4,13 +4,14 @@ else
     DETECTED_OS := $(shell uname)
 endif
 
+DEBUG = 0
 OPTIMIZATION = aggressive
-PROGRAM_NAME = tscout
-TARGET = $(BIN)/$(PROGRAM_NAME)
-TREE_SITTER_LIB := odin-tree-sitter/tree-sitter/libtree-sitter.a
-PLATFORM := linux_amd64
 BIN = bin
-DEBUG=0
+PROGRAM_NAME = tscout
+PROGRAM_EXT = .bin
+PLATFORM = linux_amd64
+TARGET = $(BIN)/$(PROGRAM_NAME)$(PROGRAM_EXT)
+TREE_SITTER_LIB := odin-tree-sitter/tree-sitter/libtree-sitter.a
 
 COMP_DATE = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_HASH = $(shell git rev-parse --short HEAD)
@@ -24,10 +25,10 @@ endif
 DEFINES = -define:VERSION=$(VERSION) -define:GIT_HASH=x$(GIT_HASH) -define:COMP_DATE=$(COMP_DATE) -define:PROGRAM_NAME=$(PROGRAM_NAME)
 
 ifeq ($(DETECTED_OS),Windows)
-	TARGET = $(BIN)\$(PROGRAM_NAME)
+	PROGRAM_EXT = .exe
+	TARGET = $(BIN)\$(PROGRAM_NAME)$(PROGRAM_EXT)
 	TREE_SITTER_LIB := odin-tree-sitter/tree-sitter/libtree-sitter.lib
 	PLATFORM := windows_amd64
-	PROGRAM_NAME = tscout.exe
 	COMP_DATE = $(shell powershell -NoProfile -Command "(Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')")
 endif
 
@@ -36,10 +37,10 @@ endif
 all: $(TARGET)
 
 $(BIN):
-ifeq ($(DETECTED_OS),Linux)
-	mkdir -p $(BIN)
-else
+ifeq ($(DETECTED_OS),Windows)
 	mkdir $(BIN)
+else
+	mkdir -p $(BIN)
 endif
 
 $(TARGET): *.odin $(TREE_SITTER_LIB) | $(BIN)
@@ -48,16 +49,16 @@ $(TARGET): *.odin $(TREE_SITTER_LIB) | $(BIN)
 $(TREE_SITTER_LIB):
 	odin run odin-tree-sitter/build -- install
 
-ifeq ($(DETECTED_OS),Linux)
-clean:
-	rm -f $(TARGET)
-	rmdir $(BIN) 2>/dev/null || true
-	rm -rf odin-tree-sitter/tree-sitter
-else
+ifeq ($(DETECTED_OS),Windows)
 clean: SHELL := cmd.exe
 clean: .SHELLFLAGS := /C
 clean:
 	if exist "$(TARGET)" del "$(TARGET)"
 	if exist "$(BIN)" rmdir /S /Q "$(BIN)"
 	if exist "odin-tree-sitter\tree-sitter" rmdir /S /Q "odin-tree-sitter\tree-sitter"
+else
+clean:
+	rm -f $(TARGET)
+	rmdir $(BIN) 2>/dev/null || true
+	rm -rf odin-tree-sitter/tree-sitter
 endif
